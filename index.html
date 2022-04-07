@@ -1,3 +1,228 @@
 <html>
-<body><div style="text-align">此域名转让，详情可以在阿里云域名中心查询885541.com</div></body>
+<body><div style="text-align">此域名转让，详情可以在阿里云域名中心查询885541.com</div>
+package com.demo.myapplication;
+
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureFailure;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.SessionConfiguration;
+import android.media.ImageReader;
+import android.os.Bundle;
+
+import com.google.android.material.snackbar.Snackbar;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.util.Log;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.View;
+
+import androidx.core.app.ActivityCompat;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
+import androidx.navigation.ui.AppBarConfiguration;
+import androidx.navigation.ui.NavigationUI;
+
+import com.demo.myapplication.databinding.ActivityMainBinding;
+
+import android.view.Menu;
+import android.view.MenuItem;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+
+public class MainActivity extends AppCompatActivity {
+
+    private AppBarConfiguration appBarConfiguration;
+    private ActivityMainBinding binding;
+    private SurfaceView mSurfaceView;
+    private CameraManager mCameraManager;
+    private ImageReader mImageReader;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mCameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+        mSurfaceView = (SurfaceView) findViewById(R.id.surface_view);
+        mSurfaceView.getHolder().addCallback(mHolder);
+
+    }
+
+    /**
+     * @NonNull String cameraId,
+     *             @NonNull final CameraDevice.StateCallback callback, @Nullable Handler handler)
+     */
+    private void openCamera() throws CameraAccessException {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        mCameraManager.openCamera("0", mDeviceStateCallback, null);
+        mImageReader = ImageReader.newInstance(mSurfaceView.getWidth(),mSurfaceView.getHeight(),ImageFormat.JPEG,2);
+
+    }
+
+   private  CaptureRequest mRequest;
+    private CameraDevice mCameraDevice;
+    private SessionConfiguration mSessionConfig;
+    private int num=0;
+    private void preview(){
+        try {
+            num++;
+            Surface surface = mSurfaceView.getHolder().getSurface();
+
+            OutputConfiguration outputConfiguration = new OutputConfiguration(surface);
+
+            List<OutputConfiguration> outputConfigurationList = new ArrayList<>();
+            outputConfigurationList.add(outputConfiguration);
+            //outputConfigurationList.add(new OutputConfiguration(mImageReader.getSurface()));
+            //outputConfigurationList.add(new OutputConfiguration());
+            SessionConfiguration sessionConfiguration = new SessionConfiguration(SessionConfiguration.SESSION_REGULAR,
+                    outputConfigurationList,
+                    mExecutor,
+                    sessionCallback
+            );
+
+
+
+            CaptureRequest.Builder builder= mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            builder.addTarget(surface);
+            builder.addTarget(mImageReader.getSurface());
+            mRequest = builder.build();
+            sessionConfiguration.setSessionParameters(mRequest);
+            mCameraDevice.createCaptureSession(sessionConfiguration);
+
+            mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private CameraDevice.StateCallback mDeviceStateCallback= new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(@NonNull CameraDevice camera) {
+            mCameraDevice = camera;
+            preview();
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice camera) {
+
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice camera, int error) {
+
+        }
+    };
+    private Executor mExecutor = new Executor() {
+        @Override
+        public void execute(Runnable command) {
+
+            Log.v("zf","execute+===="+command);
+            command.run();
+
+           /* ImageReader imageReader = ImageReader.newInstance(400,400, ImageFormat.JPEG,10);
+            imageReader.getSurface();
+            mSurfaceView.*/
+        }
+    };
+
+
+    private CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
+        @Override
+        public void onCaptureStarted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, long timestamp, long frameNumber) {
+            super.onCaptureStarted(session, request, timestamp, frameNumber);
+            Log.v("zf","onCaptureStarted");
+        }
+
+        @Override
+        public void onCaptureProgressed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureResult partialResult) {
+            super.onCaptureProgressed(session, request, partialResult);
+        }
+
+        @Override
+        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+            super.onCaptureCompleted(session, request, result);
+            Log.v("zf","onCaptureCompleted");
+            try {
+                CaptureRequest.Builder builder =  mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                builder.addTarget(mSurfaceView.getHolder().getSurface());
+                session.setRepeatingRequest(builder.build(),captureCallback,null);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onCaptureFailed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureFailure failure) {
+            super.onCaptureFailed(session, request, failure);
+        }
+    };
+
+    private CameraCaptureSession.StateCallback sessionCallback = new CameraCaptureSession.StateCallback() {
+        @Override
+        public void onConfigured(@NonNull CameraCaptureSession session) {
+            Log.v("zf","onConfigured");
+            try {
+               CaptureRequest.Builder builder =  mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+               builder.addTarget(mSurfaceView.getHolder().getSurface());
+                session.capture(builder.build(),captureCallback,null);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+            }
+            //session.setRepeatingRequest(mRequest,)
+            //preview();
+        }
+
+        @Override
+        public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+            Log.v("zhangfu","onConfigureFailed");
+        }
+    };
+
+    private SurfaceHolder.Callback mHolder=new SurfaceHolder.Callback() {
+        @Override
+        public void surfaceCreated(@NonNull SurfaceHolder holder) {
+            Log.v("zf","surfaceCreated");
+            try {
+                openCamera();
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
+            Log.v("zf","surfaceChanged");
+            //holder.getSurface().notifyAll();
+        }
+
+        @Override
+        public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+
+        }
+    };
+
+
+
+}
+
+
+</body>
 </html>
